@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pvc-tensile-experiment"
+version = "0.1.0"
+description = "Image processing from blue markers placed on PVC gels"
+authors = [
+    { name = "TheDuckenEngineer", email = "John.faccinto@unlv.edu" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=6.29.5",
+    "matplotlib>=3.9.4",
+    "numpy>=2.1.2",
+    "opencv-python>=4.10.0.84",
+    "pyserial>=3.5",
+    "trackpy>=0.6.4",
+]
+

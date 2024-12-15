@@ -12,7 +12,7 @@ def Mask(folderName, i, kernel):
 
     # select the blue color range which is 95 to 140 hue. openCV uses hue up to 180
     upperLim1 = np.array([140, 255, 255])
-    lowerLim1 = np.array([80, 185, 110])  # was ([80, 90, 110])
+    lowerLim1 = np.array([80, 185, 110])  # was [80, 90, 110]
     mask = cv2.inRange(hsv, lowerLim1, upperLim1)
     # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     # mask = cv2.erode(mask, (7,7))
@@ -79,7 +79,7 @@ def ParticleIdentify(folderName, small, big, openingKernal):
     # run particle linking through trackpy. use a movement of 5 pixels and use 10
     # frames to remember non-existing pixels
     try:
-        tracked = tp.link(df, 5, memory = 10, )
+        tracked = tp.link(df, 10, memory = 12)
         tracked.drop(columns = ['area'], inplace = True)
     except IndexError:
         print('No particles identified')

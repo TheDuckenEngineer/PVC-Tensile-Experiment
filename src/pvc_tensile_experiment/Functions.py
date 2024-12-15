@@ -12,10 +12,10 @@ def Mask(folderName, i, kernel):
 
     # select the blue color range which is 95 to 140 hue. openCV uses hue up to 180
     upperLim1 = np.array([140, 255, 255])
-    lowerLim1 = np.array([80, 90, 105])
+    lowerLim1 = np.array([80, 185, 110])  # was ([80, 90, 110])
     mask = cv2.inRange(hsv, lowerLim1, upperLim1)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.erode(mask, (7,7))
+    # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    # mask = cv2.erode(mask, (7,7))
 
     # find the contours from the blue mask
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -79,7 +79,7 @@ def ParticleIdentify(folderName, small, big, openingKernal):
     # run particle linking through trackpy. use a movement of 5 pixels and use 10
     # frames to remember non-existing pixels
     try:
-        tracked = tp.link(df, 12, memory = 13)
+        tracked = tp.link(df, 5, memory = 10, )
         tracked.drop(columns = ['area'], inplace = True)
     except IndexError:
         print('No particles identified')
@@ -97,12 +97,13 @@ def StrainFunction(folderName, objects):
 
     # all particles should exist in the same frame. remove frames that don't appear 4 times. 
     objects.drop(index = objects[objects.particle > 3].index, inplace = True)
- 
+    objects.reset_index(inplace=True)
+
     # list the particles. if there is more than 4, remove them. find the indices for 
     # axial particles using the max and min x-position.  
     position = [objects.x[i] for i in objects.particle.unique()]
     axParticles = [position.index(max(position)), position.index(min(position))]
-    transParticles = [i for i in objects.particle.unique() if i not in axParticles]
+    transParticles = [int(i) for i in objects.particle.unique() if i not in axParticles]
     pair = [axParticles, transParticles] 
 
     # import stress data from the excel sheet but only choose data points that exist in the frames
@@ -110,7 +111,7 @@ def StrainFunction(folderName, objects):
 
     # find instanaces where image frames exist and save these isntances of stress data
     stressLen = len(data)
-    frameMax = min([len(objects[objects['particle'] == i]) for i in range(0, 4)])
+    frameMax = min([len(objects[objects['particle'] == i]) for i in np.arange(0, 4)])
     if stressLen < frameMax:
         stress = data
         frameRange = range(0, stressLen)

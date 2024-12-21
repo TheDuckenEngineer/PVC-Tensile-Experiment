@@ -2,7 +2,7 @@ import cv2; import numpy as np; import pandas as pd;
 import trackpy as tp; import os
 
 
-def Mask(folderName, i, kernel):
+def Mask(folderName, i, kernel, useKernel):
     # read the first and last images 
     frame = cv2.imread(f'{folderName}/{i}')
 
@@ -14,15 +14,16 @@ def Mask(folderName, i, kernel):
     upperLim1 = np.array([140, 255, 255])
     lowerLim1 = np.array([80, 185, 110])  # was [80, 90, 110]
     mask = cv2.inRange(hsv, lowerLim1, upperLim1)
-    # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    # mask = cv2.erode(mask, (7,7))
+    if useKernel == True:
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        # mask = cv2.erode(mask, (7,7))
 
     # find the contours from the blue mask
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     return frame, contours
 
 
-def MarkerIdentify(folderName, small, big, openingKernal):
+def MarkerIdentify(folderName, small, big, openingKernal, useKernel):
     # list the image names from the directory and separate the data file and images
     fileName = os.listdir(folderName)
     imageNames =  [fileName for fileName in fileName if fileName.endswith('jpg')]
@@ -30,7 +31,7 @@ def MarkerIdentify(folderName, small, big, openingKernal):
     for i in ['0.jpg', f'{len(imageNames)-2}.jpg']:
         
         # apply the mask to the frame
-        frame, contours = Mask(folderName, i, openingKernal)
+        frame, contours = Mask(folderName, i, openingKernal, useKernel)
 
         # find the centroid of the contours and save to data frame
         for cnt in contours:
@@ -52,7 +53,7 @@ def MarkerIdentify(folderName, small, big, openingKernal):
     return 
 
 
-def ParticleIdentify(folderName, small, big, openingKernal):
+def ParticleIdentify(folderName, small, big, openingKernal, useKernel):
     # list the image names from the directory and separate the data file and images
     fileName = os.listdir(folderName)
     imageNames =  [fileName for fileName in fileName if fileName.endswith('jpg')]  
@@ -62,7 +63,7 @@ def ParticleIdentify(folderName, small, big, openingKernal):
 
     for i in imageNames:
         # apply the mask to the frame
-        _, contours = Mask(folderName, i, openingKernal)
+        _, contours = Mask(folderName, i, openingKernal, useKernel)
         
         # find the centroid of the contours and save to data frame
         for cnt in contours:
@@ -181,7 +182,7 @@ def DataComplile(plastiRatio):
     fileNames = [i for i in os.listdir('Processed data') if i.find(f'{plastiRatio}') != -1]
     
     # preallocate the total data vector 
-    Data = np.zeros([0, 7])
+    Data = np.zeros([0, 5])
 
     for i in fileNames:
         axDist, axStrain, transDist, transStrain, stress = DataReader(i)

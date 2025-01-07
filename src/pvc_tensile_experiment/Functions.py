@@ -14,6 +14,7 @@ def Mask(frame, lowerColorLims, useKernel, kernelSize):
     # apply a mask if desired
     if useKernel == True:
         openingKernal = np.ones((kernelSize, kernelSize), np.uint8)
+        # mask = cv2.erode(mask, openingKernal)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, openingKernal)
 
     # find the contours from the blue mask

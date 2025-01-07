@@ -1,59 +1,74 @@
 import cv2; import numpy as np; import pandas as pd;
-import trackpy as tp; import os
+import trackpy as tp; import os ; import plotly.express as px
 
 
-def Mask(folderName, i, kernel, useKernel):
-    # read the first and last images 
-    frame = cv2.imread(f'{folderName}/{i}')
-
-    # blur the image a bit. convert color to hsv from rgb.
-    # blur = cv2.GaussianBlur(frame, (3,3), 0)
+def Mask(frame, lowerColorLims, useKernel, kernelSize):
+    # convert color to hsv from rgb.
     hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
 
     # select the blue color range which is 95 to 140 hue. openCV uses hue up to 180
-    upperLim1 = np.array([140, 255, 255])
-    lowerLim1 = np.array([80, 185, 110])  # was [80, 90, 110]
-    mask = cv2.inRange(hsv, lowerLim1, upperLim1)
+    upperLim = np.array([140, 255, 255])
+    lowerLim = np.array(lowerColorLims)
+    mask = cv2.inRange(hsv, lowerLim, upperLim)
+    
+    # apply a mask if desired
     if useKernel == True:
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        # mask = cv2.erode(mask, (7,7))
+        openingKernal = np.ones((kernelSize, kernelSize), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, openingKernal)
 
     # find the contours from the blue mask
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    return frame, contours
+    return contours
 
 
-def MarkerIdentify(folderName, small, big, openingKernal, useKernel):
+def MaskCheck(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
     # list the image names from the directory and separate the data file and images
     fileName = os.listdir(folderName)
-    imageNames =  [fileName for fileName in fileName if fileName.endswith('jpg')]
+    imageNames =  [fileName for fileName in fileName if fileName.endswith('jpg')]  
 
-    for i in ['0.jpg', f'{len(imageNames)-2}.jpg']:
+    # preallocate dataframe array
+    df = []
+
+    for i in range(0, len(imageNames), 50):
         
-        # apply the mask to the frame
-        frame, contours = Mask(folderName, i, openingKernal, useKernel)
+        # pull the frame from the folder
+        frame = cv2.imread(f'{folderName}/{i}.jpg')
 
+        # find the contours from the blue mask
+        contours = Mask(frame, lowerColorLims, useKernel, kernelSize)
+        
         # find the centroid of the contours and save to data frame
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if (area > small) & (area < big):
-                print(area)
+            if (area > searchRegion[0]) & (area < searchRegion[1]):
                 M = cv2.moments(cnt)
                 cx = int(M['m10']/M['m00'])
                 cy = int(M['m01']/M['m00'])
-                cv2.drawContours(frame, cnt, -1, (0, 225, 225), 3)
-                cv2.circle(frame, (cx, cy), 2, (0, 255, 0), -1)
+                df.append([cy, cx, i, area])
 
-        # show overlayed contours and the frame number
+                # draw contours and their centers
+                cv2.drawContours(frame, cnt, -1, (100, 255, 255), 1)
+                cv2.circle(frame, (cx, cy), 3, (0, 255, 0), -1)
+
+        # setp and display the contours and centers
         cv2.namedWindow('Inspection', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Inspection', 960, 200)
+        cv2.resizeWindow('Inspection', 1080, 300)
         cv2.imshow('Inspection', frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()  
-    return 
+        cv2.waitKey(35)
+    
+    # close the window previewer
+    cv2.destroyAllWindows() 
+
+    # define the tracking dataframe after reshaping it
+    df = pd.DataFrame(np.array([df]).reshape((len(df), 4)), columns = ['y', 'x', 'frame', 'area'])
+
+    # plot the centroids as they evolve 
+    fig = px.scatter_3d(x = df.x, y = df.y, z = df.area)
+    fig.show()
+    return
 
 
-def ParticleIdentify(folderName, small, big, openingKernal, useKernel):
+def ParticleIdentify(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
     # list the image names from the directory and separate the data file and images
     fileName = os.listdir(folderName)
     imageNames =  [fileName for fileName in fileName if fileName.endswith('jpg')]  
@@ -61,23 +76,27 @@ def ParticleIdentify(folderName, small, big, openingKernal, useKernel):
     # preallocate dataframe array
     df = []
 
-    for i in imageNames:
+    for i in range(0, len(imageNames), 1):
+
+        # pull the frame from the folder
+        frame = cv2.imread(f'{folderName}/{i}.jpg')
+
         # apply the mask to the frame
-        _, contours = Mask(folderName, i, openingKernal, useKernel)
+        contours = Mask(frame, lowerColorLims, useKernel, kernelSize)
         
         # find the centroid of the contours and save to data frame
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if (area > small) & (area < big):
+            if (area > searchRegion[0]) & (area < searchRegion[1]):
                 M = cv2.moments(cnt)
                 cx = int(M['m10']/M['m00'])
                 cy = int(M['m01']/M['m00'])
-                df.append([cy, cx, i.rstrip('.jpg'), area])
+                df.append([cy, cx, i, area])
 
     # define the tracking dataframe after reshaping it
     df = pd.DataFrame(np.array([df]).reshape((len(df), 4)), columns = ['y', 'x', 'frame', 'area'])
 
-    # run particle linking through trackpy. use a movement of 5 pixels and use 10
+    # run particle linking through trackpy. use a movement of 10 pixels and use 12
     # frames to remember non-existing pixels
     try:
         tracked = tp.link(df, 10, memory = 12)

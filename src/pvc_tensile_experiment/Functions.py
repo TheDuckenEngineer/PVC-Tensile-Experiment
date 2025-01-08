@@ -174,8 +174,7 @@ def StrainFunction(folderName, objects):
     # export the data 
     df = pd.DataFrame(columns = ["Axial Displacement (mm)", "Axial Strain (pxl/pxl)", 
                                  "Transverse Displacement (mm)", "Transverse Strain (pxl/pxl)", 
-                                 "Stress", 
-                                 "Specimen Angle", "Axial Angle Offset"])
+                                 "Stress (Mpa)"])
     df["Axial Displacement (mm)"] = axDist    
     df["Axial Strain (pxl/pxl)"] = axStrain
     df["Transverse Displacement (mm)"] = transDist 

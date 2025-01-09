@@ -55,7 +55,8 @@ def MaskCheck(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
         cv2.namedWindow('Inspection', cv2.WINDOW_NORMAL)
         cv2.resizeWindow('Inspection', 1080, 300)
         cv2.imshow('Inspection', frame)
-        cv2.waitKey(35)
+        if cv2.waitKey(35) & 0xFF == 27:
+            break
     
     # close the window previewer
     cv2.destroyAllWindows() 
@@ -174,7 +175,7 @@ def StrainFunction(folderName, objects):
     # export the data 
     df = pd.DataFrame(columns = ["Axial Displacement (mm)", "Axial Strain (pxl/pxl)", 
                                  "Transverse Displacement (mm)", "Transverse Strain (pxl/pxl)", 
-                                 "Stress (Mpa)"])
+                                 "Stress (MPa)"])
     df["Axial Displacement (mm)"] = axDist    
     df["Axial Strain (pxl/pxl)"] = axStrain
     df["Transverse Displacement (mm)"] = transDist 

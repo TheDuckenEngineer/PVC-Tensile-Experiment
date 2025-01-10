@@ -101,7 +101,7 @@ def ParticleIdentify(folderName, searchRegion, lowerColorLims, useKernel, kernel
     # run particle linking through trackpy. use a movement of 10 pixels and use 12
     # frames to remember non-existing pixels
     try:
-        tracked = tp.link(df, 10, memory = 12)
+        tracked = tp.link(df, 15, memory = 15)
         tracked.drop(columns = ['area'], inplace = True)
     except IndexError:
         print('No particles identified')

@@ -187,7 +187,7 @@ def StrainFunction(folderName, objects):
 
 
 def DataReader(filename):
-    df = pd.read_csv(f'Processed data/{filename}')
+    df = pd.read_csv(f'Processed data/Modeling data/{filename}')
     axDist = df["Axial Displacement (mm)"][1::].to_numpy()
     axStrain = df["Axial Strain (pxl/pxl)"][1::].to_numpy()
     transDist = df["Transverse Displacement (mm)"][1::].to_numpy()
@@ -199,7 +199,7 @@ def DataReader(filename):
 
 def DataComplile(plastiRatio):
     # import the processed data based on it's plasticizer content
-    fileNames = [i for i in os.listdir('Processed data') if i.find(f'{plastiRatio}') != -1]
+    fileNames = [i for i in os.listdir('Processed data/Modeling data') if i.find(f'{plastiRatio}') != -1]
     
     # preallocate the total data vector 
     Data = np.zeros([0, 5])

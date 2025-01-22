@@ -54,8 +54,7 @@ def WidthCheck(frame):
 pixelCalibration = np.load("Pixel Calibration.npy")
 
 # variable inputs
-folderName = 'Data/PVC P2 Test_4'
+folderName = 'Data/PVC P4 Test_7'
 frame = cv2.imread(f'{folderName}/120.jpg')
 width = WidthCheck(frame)
 print(np.average(width))
-

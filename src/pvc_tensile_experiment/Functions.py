@@ -1,6 +1,6 @@
 import cv2; import numpy as np; import pandas as pd;
 import trackpy as tp; import os ; import plotly.express as px
-
+import time
 
 def Mask(frame, lowerColorLims, useKernel, kernelSize):
     # convert color to hsv from rgb.
@@ -29,7 +29,7 @@ def MaskCheck(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
 
     # preallocate dataframe array
     df = []
-
+    time.sleep(1)
     for i in range(0, len(imageNames), 50):
         
         # pull the frame from the folder
@@ -53,7 +53,7 @@ def MaskCheck(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
 
         # setp and display the contours and centers
         cv2.namedWindow('Inspection', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Inspection', 1080, 300)
+        cv2.resizeWindow('Inspection', 960, 540)
         cv2.imshow('Inspection', frame)
         if cv2.waitKey(35) & 0xFF == 27:
             break
@@ -62,10 +62,9 @@ def MaskCheck(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
     cv2.destroyAllWindows() 
 
     # define the tracking dataframe after reshaping it
-    df = pd.DataFrame(np.array([df]).reshape((len(df), 4)), columns = ['y', 'x', 'frame', 'area'])
-
-    # plot the centroids as they evolve 
-    fig = px.scatter_3d(x = df.x, y = df.y, z = df.area)
+    df = pd.DataFrame(np.array([df]).reshape((len(df), 4)), columns = ['Y-Pixel Position', 'X-Pixel Position', 'frame', 'Marker Area'])
+    fig = px.scatter_3d(df, x = 'X-Pixel Position', y = 'Y-Pixel Position', z = 'Marker Area', 
+                        color = 'Marker Area', labels = ['X-Pixel Position', 'Y-Pixel Position', 'Marker Area'])
     fig.show()
     return
 
@@ -208,6 +207,7 @@ def DataComplile(plastiRatio):
         axDist, axStrain, transDist, transStrain, stress = DataReader(i)
         data = np.vstack([axDist, axStrain, transDist, transStrain, stress]).T
         Data = np.vstack([Data, data])
+    Data = Data[Data[::, 1].argsort()]
     axDist = Data[::, 0]
     axStrain = Data[::, 1]
     transDist = Data[::, 2]

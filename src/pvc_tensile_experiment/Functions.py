@@ -1,5 +1,5 @@
 import cv2; import numpy as np; import pandas as pd;
-import trackpy as tp; import os ; import plotly.express as px
+import trackpy as tp; import os ; import matplotlib.pyplot as plt
 import time
 
 def Mask(frame, lowerColorLims, useKernel, kernelSize):
@@ -62,10 +62,26 @@ def MaskCheck(folderName, searchRegion, lowerColorLims, useKernel, kernelSize):
     cv2.destroyAllWindows() 
 
     # define the tracking dataframe after reshaping it
-    df = pd.DataFrame(np.array([df]).reshape((len(df), 4)), columns = ['Y-Pixel Position', 'X-Pixel Position', 'frame', 'Marker Area'])
-    fig = px.scatter_3d(df, x = 'X-Pixel Position', y = 'Y-Pixel Position', z = 'Marker Area', 
-                        color = 'Marker Area', labels = ['X-Pixel Position', 'Y-Pixel Position', 'Marker Area'])
-    fig.show()
+    df = pd.DataFrame(np.array([df]).reshape((len(df), 4)), columns = ['y', 'x', 'frame', 'area'])
+
+    # make a 3D plot of the marker area at its position
+    fig = plt.figure(layout = 'constrained')
+    ax = fig.add_subplot(projection = '3d')
+    ax.set_xlabel('Length (pxl)')
+    ax.set_ylabel('Width (pxl)')
+    ax.set_title('Marker Size')
+    ax.scatter3D(df.x, df.y, df.area, c = df.area)
+
+    # show the areas per plane
+    _, axs = plt.subplots(1, 2, layout = 'constrained')
+    axs[0].scatter(df.y, df.area, c = df.area)
+    axs[1].scatter(df.x, df.area, c = df.area)
+    axs[0].set_xlabel('Width (pxl)', fontsize = 13)
+    axs[1].set_xlabel('Length (pxl)', fontsize = 13)
+    axs[0].set_ylabel('Marker Size', fontsize = 13)
+    axs[0].set_title('Marker Size along Width')
+    axs[1].set_title('Marker Size along Length')
+    plt.show()
     return
 
 

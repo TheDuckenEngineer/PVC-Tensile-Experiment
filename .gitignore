@@ -1,6 +1,5 @@
 # ignore specific files and data folders
 Data/
-Processed data/
 Yeet.py
 
 # Python-generated files

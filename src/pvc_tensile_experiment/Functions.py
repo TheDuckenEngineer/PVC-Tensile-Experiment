@@ -144,6 +144,7 @@ def StrainFunction(folderName, objects):
     pair = [axParticles, transParticles] 
 
     # import stress data from the excel sheet but only choose data points that exist in the frames
+    # stress was recorded in MPa from the Instron
     data = pd.read_csv(f'{folderName}/{dataName}')['Tensile stress'][1::].to_numpy(dtype = float)
 
     # find instanaces where image frames exist and save these isntances of stress data
@@ -202,7 +203,7 @@ def StrainFunction(folderName, objects):
 
 
 def DataReader(filename):
-    df = pd.read_csv(f'Data/Modeling data/{filename}')
+    df = pd.read_csv(f'Data/Best data/{filename}')
     axDist = df["Axial Displacement (mm)"][1::].to_numpy()
     axStrain = df["Axial Strain (pxl/pxl)"][1::].to_numpy()
     transDist = df["Transverse Displacement (mm)"][1::].to_numpy()
@@ -214,7 +215,7 @@ def DataReader(filename):
 
 def DataComplile(plastiRatio):
     # import the processed data based on it's plasticizer content
-    fileNames = [i for i in os.listdir('Data/Modeling data') if i.find(f'{plastiRatio}') != -1]
+    fileNames = [i for i in os.listdir('Data/Best data') if i.find(f'{plastiRatio}') != -1]
     
     # preallocate the total data vector 
     Data = np.zeros([0, 5])

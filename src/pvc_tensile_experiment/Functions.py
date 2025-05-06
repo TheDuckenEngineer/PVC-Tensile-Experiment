@@ -202,8 +202,8 @@ def StrainFunction(folderName, objects):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def DataReader(filename):
-    df = pd.read_csv(f'Data/Best data/{filename}')
+def TensileDataReader(filename):
+    df = pd.read_csv(f'Data/Tensile Data/Best data/{filename}')
     axDist = df["Axial Displacement (mm)"][1::].to_numpy()
     axStrain = df["Axial Strain (pxl/pxl)"][1::].to_numpy()
     transDist = df["Transverse Displacement (mm)"][1::].to_numpy()
@@ -213,15 +213,15 @@ def DataReader(filename):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def DataComplile(plastiRatio):
+def TensileDataCompile(plastiRatio):
     # import the processed data based on it's plasticizer content
-    fileNames = [i for i in os.listdir('Data/Best data') if i.find(f'{plastiRatio}') != -1]
+    fileNames = [i for i in os.listdir('Data/Tensile Data/Best data') if i.find(f'{plastiRatio}') != -1]
     
     # preallocate the total data vector 
     Data = np.zeros([0, 5])
 
     for i in fileNames:
-        axDist, axStrain, transDist, transStrain, stress = DataReader(i)
+        axDist, axStrain, transDist, transStrain, stress = TensileDataReader(i)
         data = np.vstack([axDist, axStrain, transDist, transStrain, stress]).T
         Data = np.vstack([Data, data])
     Data = Data[Data[::, 1].argsort()]

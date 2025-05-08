@@ -202,8 +202,8 @@ def StrainFunction(folderName, objects):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def TensileDataReader(filename):
-    df = pd.read_csv(f'Data/Tensile Data/Best data/{filename}')
+def DataReader(folder,filename):
+    df = pd.read_csv(f'Data/{folder}/{filename}')
     axDist = df["Axial Displacement (mm)"][1::].to_numpy()
     axStrain = df["Axial Strain (pxl/pxl)"][1::].to_numpy()
     transDist = df["Transverse Displacement (mm)"][1::].to_numpy()
@@ -213,15 +213,15 @@ def TensileDataReader(filename):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def TensileDataCompile(plastiRatio):
+def DataCompile(folder, plastiRatio):
     # import the processed data based on it's plasticizer content
-    fileNames = [i for i in os.listdir('Data/Tensile Data/Best data') if i.find(f'{plastiRatio}') != -1]
+    fileNames = [i for i in os.listdir(f'Data/{folder}') if i.find(f'{plastiRatio}') != -1]
     
     # preallocate the total data vector 
     Data = np.zeros([0, 5])
 
     for i in fileNames:
-        axDist, axStrain, transDist, transStrain, stress = TensileDataReader(i)
+        axDist, axStrain, transDist, transStrain, stress = DataReader(folder, i)
         data = np.vstack([axDist, axStrain, transDist, transStrain, stress]).T
         Data = np.vstack([Data, data])
     Data = Data[Data[::, 1].argsort()]
@@ -232,3 +232,27 @@ def TensileDataCompile(plastiRatio):
     stress = Data[::, 4]
 
     return axDist, axStrain, transDist, transStrain, stress
+
+
+# this function identifies the data regions for stress relaxation data 
+def StressRelaxationRegionSelector(expTime, stress):
+    regions = []
+    for i in range(0,2):
+        # the first strain history has a 0.1 second delay. the others have a minute
+        # this conidition makes it easier to get the other steps
+        if i == 0:
+            lowerBound = np.where(expTime >= i*60)[0][0]
+            upperBound = np.where(expTime < (i+1)*60)[0][-1]
+
+        else: 
+            lowerBound = np.where(expTime >= i*60 + 2)[0][0]
+            upperBound = np.where(expTime < (i+1)*60)[0][-1]
+            indexRange = range(lowerBound, upperBound)
+
+            # find the max reading index then choose the starting point being 3 indices before maximum
+            lowerBound = indexRange[np.argmax(stress[indexRange]) - 3]
+        
+        # save the indices that define the lower and upper boundaries for each region
+        regions.append([lowerBound, upperBound])
+
+    return regions

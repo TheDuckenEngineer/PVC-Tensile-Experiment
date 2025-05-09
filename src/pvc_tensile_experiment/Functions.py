@@ -202,8 +202,8 @@ def StrainFunction(folderName, objects):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def DataReader(folder,filename):
-    df = pd.read_csv(f'Data/{folder}/{filename}')
+def InstronDataReader(folder,filename):
+    df = pd.read_csv(f'Data/Tensile Data/{folder}/{filename}')
     axDist = df["Axial Displacement (mm)"][1::].to_numpy()
     axStrain = df["Axial Strain (pxl/pxl)"][1::].to_numpy()
     transDist = df["Transverse Displacement (mm)"][1::].to_numpy()
@@ -213,15 +213,15 @@ def DataReader(folder,filename):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def DataCompile(folder, plastiRatio):
+def InstronDataCompile(folder, plastiRatio):
     # import the processed data based on it's plasticizer content
-    fileNames = [i for i in os.listdir(f'Data/{folder}') if i.find(f'{plastiRatio}') != -1]
+    fileNames = [i for i in os.listdir(f'Data/Tensile Data/{folder}') if i.find(f'{plastiRatio}') != -1]
     
     # preallocate the total data vector 
     Data = np.zeros([0, 5])
 
     for i in fileNames:
-        axDist, axStrain, transDist, transStrain, stress = DataReader(folder, i)
+        axDist, axStrain, transDist, transStrain, stress = InstronDataReader(folder, i)
         data = np.vstack([axDist, axStrain, transDist, transStrain, stress]).T
         Data = np.vstack([Data, data])
     Data = Data[Data[::, 1].argsort()]
@@ -255,4 +255,74 @@ def StressRelaxationRegionSelector(expTime, stress):
         # save the indices that define the lower and upper boundaries for each region
         regions.append([lowerBound, upperBound])
 
+    return regions
+
+
+# this function converts the raw excel file from the DMA to base units and converts into engineering stress-strain
+def ViscoelasticDataProcessor(name):
+    # import the excel file. dont use columns beyond 4 since they're empty
+    # due to needing a place to put extra comments
+    df = pd.read_excel(f"Data/Viscoelastic Data/{name}", header = None, usecols = [0, 1, 2, 3, 4])
+    name = name.removesuffix('.xlsx')
+
+    # get sample geometric data. length is in mm and area is in mm^2
+    sampleLength = df.loc[5][1]*1e-3
+    sampleArea = df.loc[6][1]*1e-6
+
+    # preallocate the measurement names
+    columnNames = ['Time (s)', 'Temp. (Cel)', 'Displacement (m)', 'Load (N)', 'Displacement Rate (m/s)']
+
+    # take the rows after the data headers 
+    data = pd.DataFrame(df.loc[df.index[28::]].to_numpy(), columns = columnNames)
+
+    # convert the data to base units. force and displacement were measured as micro-units. time is in minutes
+    data['Time (s)'] = data['Time (s)']*60
+    data['Load (N)'] = data['Load (N)']*1e-6
+    data['Displacement (m)'] = data['Displacement (m)']*1e-6
+    data['Displacement Rate (m/s)'] = data['Displacement Rate (m/s)']*1e-6*60
+
+    # convert data to stress and strain. the units are already normalized
+    data['Strain'] = data['Displacement (m)']/sampleLength
+    data['Strain Rate (1/s)'] = data['Displacement Rate (m/s)']/sampleLength
+    data['Stress (Pa)'] = data['Load (N)']/sampleArea
+
+    # # plot stress and strain along time on a single axis
+    # fig, ax = plt.subplots()
+    # ax1 = ax.twinx()
+    # ax.scatter(data['Time (min)'], data['Strain'], s = 1, c = 'r', label = 'Strain')
+    # ax.set_ylabel('Strain (m/m)')
+    # ax.set_xlabel('Time (min)')
+    # ax.tick_params('y', colors = 'r')
+    # ax.legend()
+    # ax1.scatter(data['Time (min)'], data['Stress (Pa)'], s = 1, c = 'b',  label = 'Stress (Pa)')
+    # ax1.set_ylabel('Stress (Pa)')
+    # ax1.tick_params('y', colors = 'b')
+    # ax1.legend()
+    # plt.title(f'{name} Stress Relaxation')
+    # plt.show()
+
+    # save the processed data file for reference
+    data.to_csv(f'{name} Processed.csv', sep = ',', header = True, index = False )
+    return data
+
+
+def StrainRateRegionSelector(strain):
+    # find the indices wher strain has a large change
+    regionIndices = np.where(np.diff(strain) > 1e-3)[0]
+
+    # find where the index changes more than 1. this is used to segment each region
+    startIndices = regionIndices[np.where(np.diff(regionIndices) > 1)[0] + 1]
+    startIndices = np.insert(startIndices, 0, regionIndices[0])
+    endIndices  = regionIndices[np.where(np.diff(regionIndices) > 1)[0]]
+    endIndices = np.insert(endIndices, 2, regionIndices[-1])
+
+    # define a np array to store the values. make the rows as long as the 30% strain region
+    # since itll have the most data. 3 columns for each strain amplitude
+    regions = np.zeros([endIndices[-1] - startIndices[-1], 3], dtype = int)
+
+    # populate the region indices
+    for i in range(0,3):
+        indexRange = range(startIndices[i], endIndices[i])
+        regions[range(0, len(indexRange)) ,i] = indexRange
+    
     return regions

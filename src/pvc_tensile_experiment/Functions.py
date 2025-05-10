@@ -202,7 +202,7 @@ def StrainFunction(folderName, objects):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-def InstronDataReader(folder,filename):
+def InstronDataReader(folder, filename):
     df = pd.read_csv(f'Data/Tensile Data/{folder}/{filename}')
     axDist = df["Axial Displacement (mm)"][1::].to_numpy()
     axStrain = df["Axial Strain (pxl/pxl)"][1::].to_numpy()
@@ -234,7 +234,80 @@ def InstronDataCompile(folder, plastiRatio):
     return axDist, axStrain, transDist, transStrain, stress
 
 
-# this function identifies the data regions for stress relaxation data 
+
+def ViscoelasticDataProcessor(folderName, name):
+    # import the excel file. dont use columns beyond 4 since they're empty  due to 
+    # needing a place to put extra comments
+    df = pd.read_excel(f"Data/Viscoelastic Data/{folderName}/{name}", header = None, usecols = [0, 1, 2, 3, 4])
+
+    # get sample geometric data. length is in mm and area is in mm^2
+    sampleLength = df.loc[5][1]*1e-3
+    sampleArea = df.loc[6][1]*1e-6
+
+    # preallocate the measurement names
+    data = df.loc[df.index[28::]].to_numpy(dtype = float)
+    
+    # dataColumns = ['Time (s)', 'Temp. (Cel)', 'Displacement (m)', 'Load (N)', 'Displacement Rate (m/s)']
+    time = data[:, 0]*60      # time -  converted from min to sec
+    strain = data[:, 2]*1e-6/sampleLength    # displacement - converted from um to m
+    stress = data[:, 3]*1e-6/sampleArea    # force - converted from N to uN
+    strainRate = data[:, 4]*1e-6*60/sampleLength # displacement rate - converted from um/min to m/s
+    return time, strain, strainRate, stress
+
+
+def ViscoelasticDataViewer(folderName, plastiRatio):
+    fileNames = [i for i in os.listdir(f'Data/Viscoelastic Data/{folderName}') if i.endswith('.xlsx') and i.find(plastiRatio) != -1]
+
+    # plot parameters
+    markerSize = 0.5
+    titleSize = 15
+    axisSize = 11
+    legendSize = 11
+
+    # preallocate the plots and the second y axis
+    _, ax = plt.subplots()
+    ax1 = ax.twinx()
+
+    for i in fileNames:
+        # get the data then show it 
+        time, strain, _, stress  = ViscoelasticDataProcessor(folderName, i)
+
+        # set the plotting functions
+        ax.plot(time, strain, c = 'g', linewidth = 0.5)
+        ax.set_ylabel('Strain (m/m)', color = 'g', fontsize = axisSize)
+        ax.tick_params('y', colors = 'g')
+        ax.set_xlabel('Time (sec)')
+
+        ax1.scatter(time, stress - stress[0], s = markerSize, label = f'Trial: {int(i.removesuffix('.xlsx').split('_')[1]) + 1}')
+        ax1.set_ylabel('Stress (Pa)', fontsize = axisSize)
+
+    # add a title and legend
+    plt.title(f'{plastiRatio} {folderName}', fontsize = titleSize)
+    plt.legend(fontsize = legendSize)
+    plt.show()
+
+
+def MonotonicStrainRateRegionSelector(strain):
+    # find the indices wher strain has a large change
+    regionIndices = np.where(np.diff(strain) > 1e-3)[0]
+
+    # find where the index changes more than 1. this is used to segment each region
+    startIndices = regionIndices[np.where(np.diff(regionIndices) > 1)[0] + 1]
+    startIndices = np.insert(startIndices, 0, regionIndices[0])
+    endIndices  = regionIndices[np.where(np.diff(regionIndices) > 1)[0]]
+    endIndices = np.insert(endIndices, 2, regionIndices[-1])
+
+    # define a np array to store the values. make the rows as long as the 30% strain region
+    # since itll have the most data. 3 columns for each strain amplitude
+    regions = np.zeros([endIndices[-1] - startIndices[-1], 3], dtype = int)
+
+    # populate the region indices
+    for i in range(0, 3):
+        indexRange = range(startIndices[i], endIndices[i])
+        regions[range(0, len(indexRange)) ,i] = indexRange
+    
+    return regions
+
 def StressRelaxationRegionSelector(expTime, stress):
     regions = []
     for i in range(0,2):
@@ -257,72 +330,3 @@ def StressRelaxationRegionSelector(expTime, stress):
 
     return regions
 
-
-# this function converts the raw excel file from the DMA to base units and converts into engineering stress-strain
-def ViscoelasticDataProcessor(name):
-    # import the excel file. dont use columns beyond 4 since they're empty
-    # due to needing a place to put extra comments
-    df = pd.read_excel(f"Data/Viscoelastic Data/{name}", header = None, usecols = [0, 1, 2, 3, 4])
-    name = name.removesuffix('.xlsx')
-
-    # get sample geometric data. length is in mm and area is in mm^2
-    sampleLength = df.loc[5][1]*1e-3
-    sampleArea = df.loc[6][1]*1e-6
-
-    # preallocate the measurement names
-    columnNames = ['Time (s)', 'Temp. (Cel)', 'Displacement (m)', 'Load (N)', 'Displacement Rate (m/s)']
-
-    # take the rows after the data headers 
-    data = pd.DataFrame(df.loc[df.index[28::]].to_numpy(), columns = columnNames)
-
-    # convert the data to base units. force and displacement were measured as micro-units. time is in minutes
-    data['Time (s)'] = data['Time (s)']*60
-    data['Load (N)'] = data['Load (N)']*1e-6
-    data['Displacement (m)'] = data['Displacement (m)']*1e-6
-    data['Displacement Rate (m/s)'] = data['Displacement Rate (m/s)']*1e-6*60
-
-    # convert data to stress and strain. the units are already normalized
-    data['Strain'] = data['Displacement (m)']/sampleLength
-    data['Strain Rate (1/s)'] = data['Displacement Rate (m/s)']/sampleLength
-    data['Stress (Pa)'] = data['Load (N)']/sampleArea
-
-    # # plot stress and strain along time on a single axis
-    # fig, ax = plt.subplots()
-    # ax1 = ax.twinx()
-    # ax.scatter(data['Time (min)'], data['Strain'], s = 1, c = 'r', label = 'Strain')
-    # ax.set_ylabel('Strain (m/m)')
-    # ax.set_xlabel('Time (min)')
-    # ax.tick_params('y', colors = 'r')
-    # ax.legend()
-    # ax1.scatter(data['Time (min)'], data['Stress (Pa)'], s = 1, c = 'b',  label = 'Stress (Pa)')
-    # ax1.set_ylabel('Stress (Pa)')
-    # ax1.tick_params('y', colors = 'b')
-    # ax1.legend()
-    # plt.title(f'{name} Stress Relaxation')
-    # plt.show()
-
-    # save the processed data file for reference
-    data.to_csv(f'{name} Processed.csv', sep = ',', header = True, index = False )
-    return data
-
-
-def StrainRateRegionSelector(strain):
-    # find the indices wher strain has a large change
-    regionIndices = np.where(np.diff(strain) > 1e-3)[0]
-
-    # find where the index changes more than 1. this is used to segment each region
-    startIndices = regionIndices[np.where(np.diff(regionIndices) > 1)[0] + 1]
-    startIndices = np.insert(startIndices, 0, regionIndices[0])
-    endIndices  = regionIndices[np.where(np.diff(regionIndices) > 1)[0]]
-    endIndices = np.insert(endIndices, 2, regionIndices[-1])
-
-    # define a np array to store the values. make the rows as long as the 30% strain region
-    # since itll have the most data. 3 columns for each strain amplitude
-    regions = np.zeros([endIndices[-1] - startIndices[-1], 3], dtype = int)
-
-    # populate the region indices
-    for i in range(0,3):
-        indexRange = range(startIndices[i], endIndices[i])
-        regions[range(0, len(indexRange)) ,i] = indexRange
-    
-    return regions

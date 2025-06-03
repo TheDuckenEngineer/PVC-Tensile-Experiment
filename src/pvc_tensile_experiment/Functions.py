@@ -273,9 +273,9 @@ def ViscoelasticDataViewer(folderName, plastiRatio):
         time, strain, _, stress  = ViscoelasticDataProcessor(folderName, i)
 
         # set the plotting functions
-        ax.plot(time, strain, c = 'g', linewidth = 0.5)
-        ax.set_ylabel('Strain (m/m)', color = 'g', fontsize = axisSize)
-        ax.tick_params('y', colors = 'g')
+        ax.plot(time, strain, c = 'r', linewidth = 0.5)
+        ax.set_ylabel('Strain (m/m)', color = 'r', fontsize = axisSize)
+        ax.tick_params('y', colors = 'r')
         ax.set_xlabel('Time (sec)')
 
         ax1.scatter(time, stress - stress[0], s = markerSize, label = f'Trial: {int(i.removesuffix('.xlsx').split('_')[1]) + 1}')

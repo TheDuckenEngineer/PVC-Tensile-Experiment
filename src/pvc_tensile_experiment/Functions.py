@@ -241,51 +241,70 @@ def ViscoelasticDataProcessor(folderName, name):
     df = pd.read_excel(f"Data/Viscoelastic Data/{folderName}/{name}", header = None, usecols = [0, 1, 2, 3, 4])
 
     # get sample geometric data. length is in mm and area is in mm^2
-    sampleLength = df.loc[5][1]*1e-3
-    sampleArea = df.loc[6][1]*1e-6
+    sampleLength = df.loc[5][1]*1e-3 # sample length - converted from mm to m
+    sampleArea = df.loc[6][1]*1e-6 # sample area - converted from mm^2 to m^2
 
     # preallocate the measurement names
     data = df.loc[df.index[28::]].to_numpy(dtype = float)
     
     # dataColumns = ['Time (s)', 'Temp. (Cel)', 'Displacement (m)', 'Load (N)', 'Displacement Rate (m/s)']
-    time = data[:, 0]*60      # time -  converted from min to sec
+    expTime = data[:, 0]*60      # time -  converted from min to sec
     strain = data[:, 2]*1e-6/sampleLength    # displacement - converted from um to m
-    stress = data[:, 3]*1e-6/sampleArea    # force - converted from N to uN
-    strainRate = data[:, 4]*1e-6*60/sampleLength # displacement rate - converted from um/min to m/s
-    return time, strain, strainRate, stress
+    stress = data[:, 3]*1e-6/sampleArea     # force - converted from uN to N
+    strainRate = data[:, 4]*1e-6/60/sampleLength    # displacement rate - converted from um/min to m/s then to strain/s
+    return expTime, strain, strainRate, stress
 
-
-def ViscoelasticDataViewer(folderName, plastiRatio):
+def ViscoelasticDataViewer(plastiRatio):
+    # define the folder name and pull the files that end with xlsx
+    folderName = 'Monotonic Strain Rate Data'
     fileNames = [i for i in os.listdir(f'Data/Viscoelastic Data/{folderName}') if i.endswith('.xlsx') and i.find(plastiRatio) != -1]
 
     # plot parameters
     markerSize = 0.5
     titleSize = 15
     axisSize = 11
-    legendSize = 11
-
-    # preallocate the plots and the second y axis
-    _, ax = plt.subplots()
-    ax1 = ax.twinx()
+    legendSize = 9
 
     for i in fileNames:
-        # get the data then show it 
-        time, strain, _, stress  = ViscoelasticDataProcessor(folderName, i)
+        # read and process the data file for strain and stress 
+        _, strain, _, stress = ViscoelasticDataProcessor(folderName, i)
 
-        # set the plotting functions
-        ax.plot(time, strain, c = 'r', linewidth = 0.5)
-        ax.set_ylabel('Strain (m/m)', color = 'r', fontsize = axisSize)
-        ax.tick_params('y', colors = 'r')
-        ax.set_xlabel('Time (sec)')
-
-        ax1.scatter(time, stress - stress[0], s = markerSize, label = f'Trial: {int(i.removesuffix('.xlsx').split('_')[1]) + 1}')
-        ax1.set_ylabel('Stress (Pa)', fontsize = axisSize)
-
-    # add a title and legend
-    plt.title(f'{plastiRatio} {folderName}', fontsize = titleSize)
+        # find each strain amplitude region
+        regions = MonotonicStrainRateRegionSelector(strain)
+        for j in range(0, 3):
+            indexRange = range(regions[0, j], regions[1, j])
+            strainFit = strain[indexRange] - strain[indexRange][0]
+            stressFit = stress[indexRange] - stress[indexRange[0]]
+            plt.scatter(strainFit, stressFit, s = markerSize, label = f' Trial: {i.removesuffix('.xlsx').split('_')[1]} - Region {j}')
+    plt.xlabel('Strain (m/m)', fontsize = axisSize)
+    plt.ylabel('Stress (Pa)', fontsize = axisSize)
+    plt.title(f'{i.removesuffix('.xlsx').split('_')[0]} Fitting Region', fontsize = titleSize)
     plt.legend(fontsize = legendSize)
     plt.show()
 
+
+    # define the folder name and pull the files that end with xlsx
+    folderName = 'Stress Relaxation Data'
+    fileNames = [i for i in os.listdir(f'Data/Viscoelastic Data/{folderName}') if i.endswith('.xlsx') and i.find(plastiRatio) != -1]
+
+    for i in fileNames:
+        # read and process the data file for strain and stress 
+        expTime, strain, strainRate, stress = ViscoelasticDataProcessor(folderName, i)
+        regions = StressRelaxationRegionSelector(strainRate)
+        
+        for j in range(0, 3): 
+            # use the start and end indices to find the step region and store the equilibrium modulus
+            indexRange = range(regions[0, j], regions[1, j])
+            strainFit = strain[indexRange] - strain[indexRange][0]
+            stressFit = stress[indexRange] - stress[indexRange][0]
+            expTimeFit = expTime[indexRange] - expTime[indexRange][0]
+            plt.scatter(expTimeFit[25::], stressFit[25::]/strainFit[25::], s = markerSize + 2, label = f' Trial: {i.removesuffix('.xlsx').split('_')[1]} - Region {j}')
+
+    plt.xlabel('Time (s)', fontsize = axisSize)
+    plt.ylabel('Stress (Pa)/Strain (m/m)', fontsize = axisSize)
+    plt.title(f'{fileNames[0].removesuffix('.xlsx').split('_')[0]}', fontsize = titleSize)
+    plt.legend(fontsize = legendSize)
+    plt.show()
 
 def MonotonicStrainRateRegionSelector(strain):
     # find the indices wher strain has a large change
@@ -297,36 +316,19 @@ def MonotonicStrainRateRegionSelector(strain):
     endIndices  = regionIndices[np.where(np.diff(regionIndices) > 1)[0]]
     endIndices = np.insert(endIndices, 2, regionIndices[-1])
 
-    # define a np array to store the values. make the rows as long as the 30% strain region
-    # since itll have the most data. 3 columns for each strain amplitude
-    regions = np.zeros([endIndices[-1] - startIndices[-1], 3], dtype = int)
-
-    # populate the region indices
-    for i in range(0, 3):
-        indexRange = range(startIndices[i], endIndices[i])
-        regions[range(0, len(indexRange)) ,i] = indexRange
-    
+    regions = np.array([startIndices, endIndices])    
     return regions
 
-def StressRelaxationRegionSelector(expTime, stress):
-    regions = []
-    for i in range(0,2):
-        # the first strain history has a 0.1 second delay. the others have a minute
-        # this conidition makes it easier to get the other steps
-        if i == 0:
-            lowerBound = np.where(expTime >= i*60)[0][0]
-            upperBound = np.where(expTime < (i+1)*60)[0][-1]
+def StressRelaxationRegionSelector(strainRate):
+    # find the increasing strain regions
+    startIndices = np.where(np.diff(strainRate) > 3e-3)[0]
+    startIndices = np.delete(startIndices, np.where(np.diff(startIndices) == 1)) - 4
+    startIndices = np.delete(startIndices, 0)
+    startIndices = np.insert(startIndices, 0, 1)
 
-        else: 
-            lowerBound = np.where(expTime >= i*60 + 2)[0][0]
-            upperBound = np.where(expTime < (i+1)*60)[0][-1]
-            indexRange = range(lowerBound, upperBound)
-
-            # find the max reading index then choose the starting point being 3 indices before maximum
-            lowerBound = indexRange[np.argmax(stress[indexRange]) - 3]
-        
-        # save the indices that define the lower and upper boundaries for each region
-        regions.append([lowerBound, upperBound])
+    # get the end indices based on the points before the start of the next region
+    endIndices = np.array([startIndices[1] - 50, startIndices[2] - 50, len(strainRate) - 130])
+    regions = np.array([startIndices, endIndices])
 
     return regions
 

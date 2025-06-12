@@ -319,15 +319,13 @@ def MonotonicStrainRateRegionSelector(strain):
     regions = np.array([startIndices, endIndices])    
     return regions
 
-def StressRelaxationRegionSelector(strainRate):
-    # find the increasing strain regions
-    startIndices = np.where(np.diff(strainRate) > 3e-3)[0]
-    startIndices = np.delete(startIndices, np.where(np.diff(startIndices) == 1)) - 4
-    startIndices = np.delete(startIndices, 0)
-    startIndices = np.insert(startIndices, 0, 1)
+def StressRelaxationRegionSelector(strain):
+    # sort strain by its second derivative. select the first 3 largest values then reorder them.
+    maxIndices = np.argsort(np.diff(strain, 2), axis = 0) - 3
+    startIndices = maxIndices[np.argsort(maxIndices[0:3])]
 
     # get the end indices based on the points before the start of the next region
-    endIndices = np.array([startIndices[1] - 50, startIndices[2] - 50, len(strainRate) - 130])
+    endIndices = np.array([startIndices[1] - 50, startIndices[2] - 50, len(strain) - 130])
     regions = np.array([startIndices, endIndices])
 
     return regions

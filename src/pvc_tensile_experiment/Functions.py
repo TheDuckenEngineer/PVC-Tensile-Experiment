@@ -198,7 +198,6 @@ def StrainFunction(folderName, objects):
     df["Transverse Strain (pxl/pxl)"] = transStrain 
     df["Stress (MPa)"] = stress
     df.to_csv(f"Data\Processed data\{testName}.csv", sep = ',', header = True, index = False)
-   
     return axDist, axStrain, transDist, transStrain, stress
 
 
@@ -209,7 +208,6 @@ def InstronDataReader(folder, filename):
     transDist = df["Transverse Displacement (mm)"][1::].to_numpy()
     transStrain = df["Transverse Strain (pxl/pxl)"][1::].to_numpy()
     stress = df["Stress (MPa)"][1::].to_numpy()
-
     return axDist, axStrain, transDist, transStrain, stress
 
 
@@ -230,7 +228,6 @@ def InstronDataCompile(folder, plastiRatio):
     transDist = Data[::, 2]
     transStrain = Data[::, 3]
     stress = Data[::, 4]
-
     return axDist, axStrain, transDist, transStrain, stress
 
 
@@ -254,71 +251,6 @@ def ViscoelasticDataProcessor(folderName, name):
     strainRate = data[:, 4]*1e-6/60/sampleLength    # displacement rate - converted from um/min to m/s then to strain/s
     return expTime, strain, strainRate, stress
 
-def ViscoelasticDataViewer(plastiRatio):
-    # define the folder name and pull the files that end with xlsx
-    folderName = 'Monotonic Strain Rate Data'
-    fileNames = [i for i in os.listdir(f'Data/Viscoelastic Data/{folderName}') if i.endswith('.xlsx') and i.find(plastiRatio) != -1]
-
-    # plot parameters
-    markerSize = 0.5
-    titleSize = 15
-    axisSize = 11
-    legendSize = 9
-
-    for i in fileNames:
-        # read and process the data file for strain and stress 
-        _, strain, _, stress = ViscoelasticDataProcessor(folderName, i)
-
-        # find each strain amplitude region
-        regions = MonotonicStrainRateRegionSelector(strain)
-        for j in range(0, 3):
-            indexRange = range(regions[0, j], regions[1, j])
-            strainFit = strain[indexRange] - strain[indexRange][0]
-            stressFit = stress[indexRange] - stress[indexRange[0]]
-            plt.scatter(strainFit, stressFit, s = markerSize, label = f' Trial: {i.removesuffix('.xlsx').split('_')[1]} - Region {j}')
-    plt.xlabel('Strain (m/m)', fontsize = axisSize)
-    plt.ylabel('Stress (Pa)', fontsize = axisSize)
-    plt.title(f'{i.removesuffix('.xlsx').split('_')[0]} Fitting Region', fontsize = titleSize)
-    plt.legend(fontsize = legendSize)
-    plt.show()
-
-
-    # define the folder name and pull the files that end with xlsx
-    folderName = 'Stress Relaxation Data'
-    fileNames = [i for i in os.listdir(f'Data/Viscoelastic Data/{folderName}') if i.endswith('.xlsx') and i.find(plastiRatio) != -1]
-
-    for i in fileNames:
-        # read and process the data file for strain and stress 
-        expTime, strain, _, stress = ViscoelasticDataProcessor(folderName, i)
-
-        # the starting point is 4 before the maximum stress value
-        regions = StressRelaxationRegionSelector(expTime, stress)
-
-        for j in range(0, 3): 
-            # extract the increasing strain regions. since the start is 5 indices from the maximum stress,
-            # use these points to get the offset strain and stress
-            indexRange = range(regions[0, j], regions[1, j])
-            
-            # get the stress vector offset
-            expTimeOffset = expTime[indexRange][0]
-            stressOffset = stress[indexRange][0]
-            strainOffset = strain[indexRange][0]
-            
-            # reset the index range so the first data point is the maximum stress value.
-            indexRange =  range(regions[0, j] + 5, regions[1, j])
-
-            # define the variables 
-            expTimeFit = expTime[indexRange] - expTimeOffset
-            strainFit = strain[indexRange] - strainOffset
-            stressFit = stress[indexRange] - stressOffset
-            normStressFit = stressFit/strainFit
-            plt.scatter(expTimeFit, normStressFit, s = markerSize + 2, label = f' Trial: {i.removesuffix('.xlsx').split('_')[1]} - Region {j}')
-
-    plt.xlabel('Time (s)', fontsize = axisSize)
-    plt.ylabel('Stress (Pa)/Strain (m/m)', fontsize = axisSize)
-    plt.title(f'{fileNames[0].removesuffix('.xlsx').split('_')[0]}', fontsize = titleSize)
-    plt.legend(fontsize = legendSize)
-    plt.show()
 
 def MonotonicStrainRateRegionSelector(strain):
     # find the indices wher strain has a large change
@@ -333,8 +265,8 @@ def MonotonicStrainRateRegionSelector(strain):
     regions = np.array([startIndices, endIndices])    
     return regions
 
-def StressRelaxationRegionSelector(expTime, stress):
 
+def StressRelaxationRegionSelector(expTime, stress):
     # preallocate the maximum stress index
     maxIndex = np.zeros([0], dtype = int)
 
@@ -350,7 +282,7 @@ def StressRelaxationRegionSelector(expTime, stress):
     startIndices =  np.array(maxIndex) - 5
 
     # get the end indices based on the points before the start of the next region
-    endIndices = np.array([startIndices[1] - 50, startIndices[2] - 50, len(stress) - 130])
+    endIndices = np.array([startIndices[1] - 60, startIndices[2] - 60, len(stress) - 135])
     regions = np.array([startIndices, endIndices])
     return regions
 

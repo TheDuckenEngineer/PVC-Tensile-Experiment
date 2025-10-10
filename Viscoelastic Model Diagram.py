@@ -1,4 +1,104 @@
 import matplotlib.pyplot as plt
+"""This function shows Mullens effect for the P4"""
+from pvc_tensile_experiment.Functions import *
+def StressRelaxationRegionSelector(expTime, stress):
+    # preallocate the maximum stress index
+    maxIndex = np.zeros([0], dtype = int)
+
+    # find the maximum stress for each region
+    for i in range(0, 5):
+        regionIndex = np.where(np.logical_and(expTime > i*3800, expTime < (i+1)*3820))[0]
+
+        # find the index of the maximum value and concate to the maximum stress index
+        maxIndex = np.hstack([maxIndex, regionIndex[np.where(stress[regionIndex] == np.max(stress[regionIndex]))[0]]])
+
+    # make the start index 5 before the maximum stress
+    startIndices =  np.array(maxIndex) - 5
+    
+    # get the end indices based on the points before the start of the next region
+    endIndices = np.array([startIndices[1] - 60, startIndices[2] - 70, startIndices[3] - 60, startIndices[4] - 60, len(stress) - 60])
+    regions = np.array([startIndices, endIndices])
+
+    return regions
+
+def ViscoelasticDataProcessor(folderName, name):
+    # import the excel file. dont use columns beyond 4 since they're empty  due to 
+    # needing a place to put extra comments
+    df = pd.read_excel(f"Data/Viscoelastic Data/{folderName}/{name}", header = None, usecols = [0, 1, 2, 3, 4])
+
+    # get sample geometric data. length is in mm and area is in mm^2
+    sampleLength = df.loc[5][1]*1e-3 # sample length - converted from mm to m
+    sampleArea = df.loc[6][1]*1e-6 # sample area - converted from mm^2 to m^2
+
+    # preallocate the measurement names
+    data = df.loc[df.index[32::]].to_numpy(dtype = float)
+    
+    # dataColumns = ['Time (s)', 'Temp. (Cel)', 'Displacement (m)', 'Load (N)', 'Displacement Rate (m/s)']
+    expTime = data[:, 0]*60      # time -  converted from min to sec
+    strain = data[:, 2]*1e-6/sampleLength    # displacement - converted from um to m
+    stress = data[:, 3]*1e-6/sampleArea     # force - converted from uN to N
+    strainRate = data[:, 4]*1e-6/60/sampleLength    # displacement rate - converted from um/min to m/s then to strain/s
+    return expTime, strain, strainRate, stress
+
+
+def RelaxationDataViewer(plastiRatio):
+
+    # define the folder name and pull the files that end with xlsx
+    folderName = 'Stress Relaxation Data/Mullens'
+    fileNames = [i for i in os.listdir(f'Data/Viscoelastic Data/{folderName}') if i.endswith('.xlsx') and i.find(plastiRatio) != -1]
+
+    # plot parameters
+    markerSize = 4
+    titleSize = 15
+    axisSize = 12
+    legendSize = 11
+
+    for i in fileNames:
+        # read and process the data file for strain and stress 
+        expTime, strain, _, stress = ViscoelasticDataProcessor(folderName, i)
+        
+
+        # the starting point is 4 before the maximum stress value
+        regions = StressRelaxationRegionSelector(expTime, stress)
+        for j in [0,1,2,4]: 
+            if j == 3:
+                indexRange = range(regions[0, j] + 55, regions[1, j])
+            # extract the increasing strain regions. since the start is 5 indices from the maximum stress,
+            else:
+                indexRange = range(regions[0, j], regions[1, j])
+
+            stressOffset = stress[indexRange][0]
+            strainOffset = strain[indexRange][0]
+
+            # the starting point is 4 before the maximum stress value
+            regions = StressRelaxationRegionSelector(expTime, stress)
+
+            # reset the index range so the first data point is the maximum stress value.
+            if j == 3:
+                indexRange = range(regions[0, j] + 65, regions[1, j])
+            # extract the increasing strain regions. since the start is 5 indices from the maximum stress,
+                strainOffset = strainOffset - 0.007
+            else:
+                indexRange = range(regions[0, j] + 10, regions[1, j])
+
+            # define the variables 
+            expTimeFit = expTime[indexRange] - expTime[indexRange[0]]
+            strainFit = strain[indexRange] - strainOffset
+            stressFit = stress[indexRange] - stressOffset
+            normStressFit = stressFit/strainFit[0]/1.8
+
+            plt.yscale('log' )
+            plt.xscale('log')
+            plt.scatter(expTimeFit, normStressFit, s = markerSize, label = f'\u03B5: {np.round(strainFit[0]*100, 2)}%')
+            plt.xlabel('Time (s)', fontsize = axisSize)
+            plt.ylabel('E$_{R}(t)$', fontsize = axisSize) #\u03C3
+            plt.title(f'{plastiRatio} PVC Gel Stress Relaxation Modulus', fontsize = titleSize)
+            plt.legend(fontsize = legendSize, loc = 'right', bbox_to_anchor = (1.45, 0.5))
+
+        
+for plastiRatio in ['P2','P4','P6', 'P8']:
+    RelaxationDataViewer(plastiRatio)
+    plt.show()
 
 # # --- Helper functions ---
 # def draw_spring(ax, x, y, length=1.0, height=0.2, turns=5, orientation='horizontal', label=None):

@@ -16,7 +16,9 @@ dependencies = [
     "nbformat>=5.10.4",
     "numpy>=2.1.2",
     "opencv-python>=4.10.0.84",
+    "openpyxl>=3.1.5",
     "plotly>=5.24.1",
+    "pymoo>=0.6.1.5",
     "pyserial>=3.5",
     "trackpy>=0.6.4",
 ]
